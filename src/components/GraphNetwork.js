@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import styled from 'styled-components';
 import * as d3 from 'd3';
 
@@ -10,13 +10,59 @@ const GraphContainer = styled.div`
   overflow: hidden;
 `;
 
-const NetworkSvg = styled.svg`
+const MapSvg = styled.svg`
   width: 100%;
   height: 100%;
-  cursor: grab;
-  
-  &:active {
-    cursor: grabbing;
+  cursor: default;
+
+  g {
+    will-change: transform;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+`;
+
+const InfoPanel = styled.div`
+  position: absolute;
+  top: 50%;
+  right: 30px;
+  transform: translateY(-50%);
+  background: ${props => props.theme.secondary};
+  border: 2px solid ${props => props.theme.border};
+  border-radius: 12px;
+  padding: 2rem;
+  z-index: 100;
+  min-width: 250px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  opacity: ${props => props.show ? 1 : 0};
+  pointer-events: ${props => props.show ? 'auto' : 'none'};
+  transition: opacity 0.3s ease;
+`;
+
+const InfoTitle = styled.h3`
+  color: ${props => props.theme.text};
+  margin: 0 0 1rem 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  text-align: center;
+`;
+
+const InfoContent = styled.div`
+  color: ${props => props.theme.textSecondary};
+  font-size: 0.95rem;
+  line-height: 1.6;
+`;
+
+const InfoItem = styled.div`
+  margin-bottom: 0.75rem;
+  padding: 0.5rem;
+  background: ${props => props.theme.primary};
+  border-radius: 6px;
+
+  strong {
+    color: ${props => props.theme.text};
+    display: block;
+    margin-bottom: 0.25rem;
   }
 `;
 
@@ -29,7 +75,7 @@ const LegendPanel = styled.div`
   border-radius: 8px;
   padding: 1rem;
   z-index: 100;
-  min-width: 200px;
+  min-width: 180px;
 `;
 
 const LegendTitle = styled.h4`
@@ -43,307 +89,314 @@ const LegendItem = styled.div`
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.5rem;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   color: ${props => props.theme.textSecondary};
 `;
 
 const LegendColor = styled.div`
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
   background: ${props => props.color};
 `;
 
-const TooltipContainer = styled.div`
+const CountyTooltip = styled.div`
   position: absolute;
   background: ${props => props.theme.secondary};
-  border: 1px solid ${props => props.theme.border};
-  border-radius: 6px;
-  padding: 0.75rem;
+  border: 2px solid ${props => props.theme.border};
+  border-radius: 10px;
+  padding: 1rem;
   pointer-events: none;
-  z-index: 1000;
-  font-size: 0.9rem;
+  z-index: 500;
   color: ${props => props.theme.text};
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  max-width: 250px;
-  
-  &.hidden {
-    opacity: 0;
-    pointer-events: none;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  opacity: ${props => props.show ? 1 : 0};
+  transition: opacity 0.2s ease;
+  min-width: 220px;
+`;
+
+const TooltipTitle = styled.div`
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid ${props => props.theme.border};
+  color: ${props => props.theme.text};
+`;
+
+const TooltipStats = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+`;
+
+const TooltipRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+  color: ${props => props.theme.textSecondary};
+`;
+
+const TooltipLabel = styled.span`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  &::before {
+    content: '';
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    background: ${props => props.color};
   }
 `;
 
-const nodeColors = {
-  person: '#A95565',      // 淺藍色 - 主要目標人物
-  case: '#4E8677',        // 深綠色 - 法院案件  
-  crime: '#B1F7FC',       // 玫瑰色 - 罪名
-  family: '#8271B0',      // 紫色 - 家庭成員
-  associate: '#8271B0',   // 紫色 - 關聯人物 (與家庭成員同色)
-  company: '#BB870C'      // 金棕色 - 相關企業
+const TooltipValue = styled.span`
+  font-weight: 600;
+  color: ${props => props.theme.text};
+`;
+
+const TooltipTotal = styled.div`
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid ${props => props.theme.border};
+  font-size: 1rem;
+  font-weight: 700;
+  color: ${props => props.theme.text};
+`;
+
+// 县市数据（使用臺字以匹配 GeoJSON）
+const countyData = {
+  "台北市": { hotels: 28, gold: 10, silver: 12, bronze: 6, region: "north" },
+  "桃園市": { hotels: 22, gold: 1, silver: 9, bronze: 12, region: "north" },
+  "高雄市": { hotels: 18, gold: 5, silver: 6, bronze: 7, region: "south" },
+  "台東縣": { hotels: 17, gold: 1, silver: 1, bronze: 15, region: "east" },
+  "台南市": { hotels: 15, gold: 0, silver: 6, bronze: 9, region: "south" },
+  "花蓮縣": { hotels: 12, gold: 2, silver: 4, bronze: 6, region: "east" },
+  "宜蘭縣": { hotels: 10, gold: 3, silver: 3, bronze: 4, region: "east" },
+  "新北市": { hotels: 10, gold: 8, silver: 2, bronze: 0, region: "north" },
+  "屏東縣": { hotels: 9, gold: 1, silver: 3, bronze: 5, region: "south" },
+  "台中市": { hotels: 8, gold: 1, silver: 4, bronze: 3, region: "central" },
+  "嘉義縣": { hotels: 7, gold: 4, silver: 2, bronze: 1, region: "south" },
+  "新竹市": { hotels: 5, gold: 2, silver: 0, bronze: 3, region: "north" },
+  "苗栗縣": { hotels: 5, gold: 0, silver: 2, bronze: 3, region: "central" },
+  "新竹縣": { hotels: 4, gold: 0, silver: 0, bronze: 4, region: "north" },
+  "金門縣": { hotels: 4, gold: 1, silver: 0, bronze: 3, region: "island" },
+  "南投縣": { hotels: 3, gold: 1, silver: 2, bronze: 0, region: "central" },
+  "嘉義市": { hotels: 3, gold: 2, silver: 0, bronze: 1, region: "south" },
+  "彰化縣": { hotels: 3, gold: 0, silver: 1, bronze: 2, region: "central" },
+  "澎湖縣": { hotels: 3, gold: 2, silver: 0, bronze: 1, region: "island" },
+  "雲林縣": { hotels: 2, gold: 0, silver: 2, bronze: 0, region: "central" },
+  "基隆市": { hotels: 1, gold: 0, silver: 1, bronze: 0, region: "north" },
+  "連江縣": { hotels: 0, gold: 0, silver: 0, bronze: 0, region: "island" }
 };
 
+// 图例项 - 全國總量統計（按總量分級）
 const legendItems = [
-  { color: nodeColors.person, label: '目標人物' },
-  { color: nodeColors.case, label: '法院案件' },
-  { color: nodeColors.crime, label: '罪名' },
-  { color: nodeColors.family, label: '家庭成員' },
-  { color: nodeColors.associate, label: '關聯人物' },
-  { color: nodeColors.company, label: '相關企業' }
+  { color: '#2ecc71', label: '高度推動 (≥20間)', range: '20+' },
+  { color: '#3498db', label: '積極推動 (10-19間)', range: '10-19' },
+  { color: '#95a5a6', label: '發展中 (5-9間)', range: '5-9' },
+  { color: '#7f8c8d', label: '起步階段 (<5間)', range: '0-4' }
 ];
 
-function GraphNetwork({ data }) {
+function GraphNetwork({ data, isVisible = false }) {
   const svgRef = useRef();
-  const tooltipRef = useRef();
-  const [selectedNode, setSelectedNode] = useState(null);
+  const selectedPathRef = useRef(null); // 用 ref 追蹤選中的路徑，避免觸發重繪
+  const [hoveredCounty, setHoveredCounty] = useState(null);
+  const [selectedCounty, setSelectedCounty] = useState(null);
+  const [geoData, setGeoData] = useState(null);
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+  const tooltipUpdateTimerRef = useRef(null);
+
+  // 加载台湾 GeoJSON 数据
+  useEffect(() => {
+    // 使用公开的台湾县市 GeoJSON 数据
+    fetch('https://raw.githubusercontent.com/g0v/twgeojson/master/json/twCounty2010.geo.json')
+      .then(response => response.json())
+      .then(json => {
+        // 合并我们的数据到 GeoJSON
+        json.features.forEach(feature => {
+          const countyName = feature.properties.COUNTYNAME || feature.properties.name;
+          if (countyData[countyName]) {
+            feature.properties = {
+              ...feature.properties,
+              name: countyName,
+              hotels: countyData[countyName].hotels,
+              gold: countyData[countyName].gold,
+              silver: countyData[countyName].silver,
+              bronze: countyData[countyName].bronze,
+              region: countyData[countyName].region
+            };
+          }
+        });
+        setGeoData(json);
+      })
+      .catch(error => {
+        console.error('Error loading GeoJSON:', error);
+        // 如果加载失败，使用备用方案
+        console.log('使用备用地图数据');
+      });
+  }, []);
+
+  // 根据旅宿总量获取颜色
+  const getColor = useCallback((hotels) => {
+    if (hotels >= 20) return '#2ecc71'; // 高度推動 - 綠色
+    if (hotels >= 10) return '#3498db'; // 積極推動 - 藍色
+    if (hotels >= 5) return '#95a5a6';  // 發展中 - 淺灰
+    return '#7f8c8d'; // 起步階段 - 深灰
+  }, []);
 
   useEffect(() => {
-    if (!data || !data.nodes || !data.links) return;
+    // 檢查必要條件：geoData 已載入、地圖可見、SVG 元素已渲染
+    if (!geoData || !isVisible || !svgRef.current) return;
 
     const svg = d3.select(svgRef.current);
     const width = svgRef.current.clientWidth;
     const height = svgRef.current.clientHeight;
 
-    // 清除之前的內容
+    // 清除之前的内容
     svg.selectAll("*").remove();
 
-    // 創建容器組
-    const container = svg.append("g");
+    // 创建投影（根据实际的 GeoJSON bounds 计算）
+    const bounds = d3.geoBounds(geoData);
+    const centerX = (bounds[0][0] + bounds[1][0]) / 2;
+    const centerY = (bounds[0][1] + bounds[1][1]) / 2;
 
-    // 設置縮放行為
+    const projection = d3.geoMercator()
+      .center([centerX, centerY])
+      .fitSize([width * 0.9, height * 0.9], geoData)
+      .translate([width / 2, height / 2]);
+
+    // 簡化路徑以提升性能
+    const path = d3.geoPath()
+      .projection(projection)
+      .pointRadius(1.5); // 減少點的半徑
+
+    // 创建容器组
+    const g = svg.append("g");
+
+    // 添加缩放功能（大幅優化性能）
+    let isZooming = false;
     const zoom = d3.zoom()
-      .scaleExtent([0.1, 4])
+      .scaleExtent([0.8, 3])  // 進一步降低最大缩放倍数
+      .on("start", () => {
+        isZooming = true;
+      })
       .on("zoom", (event) => {
-        container.attr("transform", event.transform);
+        // 使用 CSS transform 而非 SVG transform，性能更好
+        const { x, y, k } = event.transform;
+        g.style("transform", `translate(${x}px, ${y}px) scale(${k})`);
+        g.style("transform-origin", "0 0");
+      })
+      .on("end", () => {
+        isZooming = false;
       });
 
     svg.call(zoom);
 
-    // 創建力模擬
-    const simulation = d3.forceSimulation(data.nodes)
-      .force("link", d3.forceLink(data.links).id(d => d.id).distance(120))
-      .force("charge", d3.forceManyBody().strength(-1000))
-      .force("center", d3.forceCenter(width / 2, height / 2))
-      .force("collision", d3.forceCollide().radius(d => d.size + 8));
-
-    // 創建箭頭標記
-    const defs = container.append("defs");
-    defs.append("marker")
-      .attr("id", "arrowhead")
-      .attr("viewBox", "0 -5 10 10")
-      .attr("refX", 18)
-      .attr("refY", 0)
-      .attr("markerWidth", 5)
-      .attr("markerHeight", 5)
-      .attr("orient", "auto")
+    // 绘制县市（優化渲染性能）
+    const paths = g.selectAll("path")
+      .data(geoData.features)
+      .enter()
       .append("path")
-      .attr("d", "M0,-5L10,0L0,5")
-      .attr("fill", "#546E7A");
-
-    // 創建連線
-    const links = container.append("g")
-      .selectAll("line")
-      .data(data.links)
-      .enter().append("line")
-      .attr("stroke", "#546E7A")
-      .attr("stroke-width", 1.5)
-      .attr("stroke-opacity", 0.6)
-      .attr("marker-end", "url(#arrowhead)");
-
-    // 創建連線標籤
-    const linkLabels = container.append("g")
-      .selectAll("text")
-      .data(data.links)
-      .enter().append("text")
-      .attr("class", "link-label")
-      .attr("font-size", "10px")
-      .attr("fill", "#90A4AE")
-      .attr("text-anchor", "middle")
-      .attr("font-weight", "500")
-      .text(d => d.relationship);
-
-    // 創建節點
-    const nodes = container.append("g")
-      .selectAll("circle")
-      .data(data.nodes)
-      .enter().append("circle")
-      .attr("r", d => d.size)
-      .attr("fill", d => d.color || nodeColors[d.group] || '#78909C')
+      .attr("d", path)
+      .attr("fill", d => getColor(d.properties.hotels || 0))
       .attr("stroke", "#263238")
-      .attr("stroke-width", 2)
+      .attr("stroke-width", 1)
+      .attr("vector-effect", "non-scaling-stroke") // 防止 zoom 時 stroke 變粗
       .style("cursor", "pointer")
-      .style("filter", "drop-shadow(2px 2px 4px rgba(0,0,0,0.3))")
-      .call(d3.drag()
-        .on("start", dragStarted)
-        .on("drag", dragged)
-        .on("end", dragEnded))
-      .on("mouseover", handleMouseOver)
-      .on("mouseout", handleMouseOut)
-      .on("click", handleNodeClick);
+      .style("shape-rendering", "geometricPrecision") // 優化渲染
+      .on("mouseenter", function(event, d) {
+        // zoom 期間禁用 hover 效果
+        if (isZooming) return;
 
-    // 創建節點標籤
-    const nodeLabels = container.append("g")
-      .selectAll("text")
-      .data(data.nodes)
-      .enter().append("text")
-      .attr("class", "node-label")
-      .attr("font-size", "11px")
-      .attr("fill", "#ECEFF1")
-      .attr("text-anchor", "middle")
-      .attr("dy", "0.35em")
-      .attr("font-weight", "600")
-      .style("pointer-events", "none")
-      .style("user-select", "none")
-      .style("text-shadow", "1px 1px 2px rgba(0,0,0,0.8)")
-      .text(d => d.id);
+        // 只有非選中狀態才改變顏色
+        if (selectedPathRef.current !== this) {
+          d3.select(this)
+            .attr("fill", "#e74c3c")
+            .attr("stroke-width", 2);
+        }
 
-    // 更新位置
-    simulation.on("tick", () => {
-      links
-        .attr("x1", d => d.source.x)
-        .attr("y1", d => d.source.y)
-        .attr("x2", d => d.target.x)
-        .attr("y2", d => d.target.y);
+        // 更新 tooltip 位置
+        const x = Math.min(event.pageX + 15, window.innerWidth - 260);
+        const y = Math.max(event.pageY - 10, 50);
+        setTooltipPosition({ x, y });
+        setHoveredCounty(d.properties);
+      })
+      .on("mousemove", function(event, d) {
+        // 使用 throttle 減少更新頻率
+        if (tooltipUpdateTimerRef.current) return;
 
-      linkLabels
-        .attr("x", d => (d.source.x + d.target.x) / 2)
-        .attr("y", d => (d.source.y + d.target.y) / 2);
+        tooltipUpdateTimerRef.current = setTimeout(() => {
+          const x = Math.min(event.pageX + 15, window.innerWidth - 260);
+          const y = Math.max(event.pageY - 10, 50);
+          setTooltipPosition({ x, y });
+          tooltipUpdateTimerRef.current = null;
+        }, 16); // 約 60fps
+      })
+      .on("mouseleave", function(event, d) {
+        // zoom 期間禁用
+        if (isZooming) return;
 
-      nodes
-        .attr("cx", d => d.x)
-        .attr("cy", d => d.y);
+        // 清除 throttle timer
+        if (tooltipUpdateTimerRef.current) {
+          clearTimeout(tooltipUpdateTimerRef.current);
+          tooltipUpdateTimerRef.current = null;
+        }
 
-      nodeLabels
-        .attr("x", d => d.x)
-        .attr("y", d => d.y);
-    });
+        // 只有非選中狀態才恢復顏色
+        if (selectedPathRef.current !== this) {
+          d3.select(this)
+            .attr("fill", getColor(d.properties.hotels || 0))
+            .attr("stroke-width", 1);
+        }
+        setHoveredCounty(null);
+      })
+      .on("click", function(event, d) {
+        // 取消之前选中的县市
+        if (selectedPathRef.current) {
+          const prevData = d3.select(selectedPathRef.current).datum();
+          d3.select(selectedPathRef.current)
+            .attr("fill", getColor(prevData.properties.hotels || 0))
+            .attr("stroke-width", 1);
+        }
 
-    // 拖拽處理函數
-    function dragStarted(event, d) {
-      if (!event.active) simulation.alphaTarget(0.3).restart();
-      d.fx = d.x;
-      d.fy = d.y;
-    }
+        // 选中当前县市
+        d3.select(this)
+          .attr("fill", "#f39c12")
+          .attr("stroke-width", 2);
 
-    function dragged(event, d) {
-      d.fx = event.x;
-      d.fy = event.y;
-    }
+        selectedPathRef.current = this;
+        setSelectedCounty(d.properties);
+      });
 
-    function dragEnded(event, d) {
-      if (!event.active) simulation.alphaTarget(0);
-      d.fx = null;
-      d.fy = null;
-    }
-
-    // 滑鼠懸停處理
-    function handleMouseOver(event, d) {
-      const tooltip = d3.select(tooltipRef.current);
-      
-      // 突出顯示相關節點和連線
-      nodes
-        .style("opacity", n => n === d || isConnected(d, n) ? 1 : 0.2)
-        .style("filter", n => n === d ? "drop-shadow(0 0 8px rgba(169, 85, 101, 0.8))" : 
-                           isConnected(d, n) ? "drop-shadow(2px 2px 4px rgba(0,0,0,0.3))" : 
-                           "drop-shadow(2px 2px 4px rgba(0,0,0,0.1))");
-      
-      links
-        .style("opacity", l => l.source === d || l.target === d ? 0.9 : 0.1)
-        .style("stroke", l => l.source === d || l.target === d ? "#A95565" : "#546E7A");
-      
-      linkLabels
-        .style("opacity", l => l.source === d || l.target === d ? 1 : 0.2);
-      
-      // 顯示工具提示
-      tooltip
-        .style("left", (event.pageX + 10) + "px")
-        .style("top", (event.pageY - 10) + "px")
-        .style("opacity", 1)
-        .html(`
-          <strong>${d.id}</strong><br/>
-          類型: ${getGroupLabel(d.group)}<br/>
-          ${getNodeDetails(d)}
-        `);
-    }
-
-    function handleMouseOut() {
-      const tooltip = d3.select(tooltipRef.current);
-      
-      // 恢復所有節點和連線的透明度
-      nodes
-        .style("opacity", 1)
-        .style("filter", "drop-shadow(2px 2px 4px rgba(0,0,0,0.3))");
-      
-      links
-        .style("opacity", 0.6)
-        .style("stroke", "#546E7A");
-        
-      linkLabels
-        .style("opacity", 1);
-      
-      // 隱藏工具提示
-      tooltip.style("opacity", 0);
-    }
-
-    function handleNodeClick(event, d) {
-      setSelectedNode(selectedNode === d ? null : d);
-    }
-
-    // 檢查節點是否連接
-    function isConnected(a, b) {
-      return data.links.some(link => 
-        (link.source === a && link.target === b) || 
-        (link.source === b && link.target === a)
-      );
-    }
-
+    // Cleanup
     return () => {
-      simulation.stop();
+      if (tooltipUpdateTimerRef.current) {
+        clearTimeout(tooltipUpdateTimerRef.current);
+      }
     };
 
-  }, [data, selectedNode]);
+  }, [geoData, getColor, isVisible]); // 添加 isVisible 以在地圖變為可見時渲染
 
-  const getGroupLabel = (group) => {
-    const labels = {
-      person: '目標人物',
-      case: '法院案件',
-      crime: '罪名',
-      family: '家庭成員',
-      associate: '關聯人物',
-      company: '相關企業'
-    };
-    return labels[group] || group;
-  };
+  const displayCounty = hoveredCounty || selectedCounty;
 
-  const getNodeDetails = (node) => {
-    switch (node.group) {
-      case 'person':
-        return '點擊查看詳細資訊';
-      case 'case':
-        return '法院判決案件';
-      case 'crime':
-        return '相關罪名';
-      case 'family':
-        return '家庭成員關係';
-      case 'associate':
-        return '關聯人物';
-      case 'company':
-        return '相關企業實體';
-      default:
-        return '';
-    }
-  };
-
-  if (!data) {
+  // 如果 GeoJSON 未載入或地圖尚未可見，顯示載入中
+  if (!geoData || !isVisible) {
     return (
       <GraphContainer>
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
           height: '100%',
-          color: '#999' 
+          color: '#b0b8c4',
+          fontSize: '1.2rem'
         }}>
-          載入圖形資料中...
+          載入中...
         </div>
       </GraphContainer>
     );
@@ -351,21 +404,89 @@ function GraphNetwork({ data }) {
 
   return (
     <GraphContainer>
-      <NetworkSvg ref={svgRef} />
+      <MapSvg ref={svgRef} />
+
+      <CountyTooltip
+        show={hoveredCounty !== null}
+        style={{
+          left: `${tooltipPosition.x}px`,
+          top: `${tooltipPosition.y}px`
+        }}
+      >
+        {hoveredCounty && (
+          <>
+            <TooltipTitle>
+              {(hoveredCounty.name || hoveredCounty.COUNTYNAME || '').replace("臺", "台")}
+            </TooltipTitle>
+            <TooltipStats>
+              <TooltipRow>
+                <TooltipLabel color="#FFD700">金級標章</TooltipLabel>
+                <TooltipValue>{hoveredCounty.gold || 0} 間</TooltipValue>
+              </TooltipRow>
+              <TooltipRow>
+                <TooltipLabel color="#C0C0C0">銀級標章</TooltipLabel>
+                <TooltipValue>{hoveredCounty.silver || 0} 間</TooltipValue>
+              </TooltipRow>
+              <TooltipRow>
+                <TooltipLabel color="#CD7F32">銅級標章</TooltipLabel>
+                <TooltipValue>{hoveredCounty.bronze || 0} 間</TooltipValue>
+              </TooltipRow>
+            </TooltipStats>
+            <TooltipTotal>
+              <span>總計</span>
+              <span>{hoveredCounty.hotels || 0} 間</span>
+            </TooltipTotal>
+          </>
+        )}
+      </CountyTooltip>
+
+      <InfoPanel show={displayCounty !== null}>
+        {displayCounty && displayCounty.hotels !== undefined && (
+          <>
+            <InfoTitle>{(displayCounty.name || displayCounty.COUNTYNAME || '').replace("臺", "台")}</InfoTitle>
+            <InfoContent>
+              <InfoItem>
+                <strong>金級標章</strong>
+                {displayCounty.gold || 0} 間
+              </InfoItem>
+              <InfoItem>
+                <strong>銀級標章</strong>
+                {displayCounty.silver || 0} 間
+              </InfoItem>
+              <InfoItem>
+                <strong>銅級標章</strong>
+                {displayCounty.bronze || 0} 間
+              </InfoItem>
+              <InfoItem style={{ background: 'rgba(52, 152, 219, 0.1)', fontWeight: 'bold' }}>
+                <strong>總計</strong>
+                {displayCounty.hotels || 0} 間
+              </InfoItem>
+              <InfoItem>
+                <strong>區域</strong>
+                {displayCounty.region === 'north' ? '北部' :
+                 displayCounty.region === 'central' ? '中部' :
+                 displayCounty.region === 'south' ? '南部' :
+                 displayCounty.region === 'east' ? '東部' : '離島'}
+              </InfoItem>
+            </InfoContent>
+          </>
+        )}
+      </InfoPanel>
 
       <LegendPanel>
-        <LegendTitle>圖例</LegendTitle>
+        <LegendTitle>旅宿分布等級</LegendTitle>
         {legendItems.map((item, index) => (
           <LegendItem key={index}>
             <LegendColor color={item.color} />
-            {item.label}
+            <span>{item.label}</span>
           </LegendItem>
         ))}
+        <LegendItem style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #37474f', fontWeight: 'bold', fontSize: '0.95rem' }}>
+          <span>全國環保標章總計: 189 間</span>
+        </LegendItem>
       </LegendPanel>
-
-      <TooltipContainer ref={tooltipRef} />
     </GraphContainer>
   );
 }
 
-export default GraphNetwork; 
+export default GraphNetwork;

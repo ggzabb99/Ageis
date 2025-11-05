@@ -151,6 +151,11 @@ const ExampleQuery = styled.p`
   line-height: 1.4;
   margin: 0;
   font-style: italic;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
 `;
 
 const LoadingIndicator = styled.div`
@@ -178,20 +183,16 @@ const Spinner = styled.div`
 
 const exampleQueries = [
   {
-    title: "個人風險查詢",
-    query: "請幫我確認網紅張小華是否有犯過金融詐欺相關案件？"
+    title: "低碳行程規劃",
+    query: "我預計12月中從台中逢甲出發到高雄駁二藝術特區，請問有推薦的低碳路徑嗎？"
   },
   {
-    title: "企業背景調查",
-    query: "ABC投資公司的負責人是否有相關的法律紀錄？"
+    title: "環保標章評估",
+    query: "我們是一間位於台中市、約有60間客房並附設餐廳的旅宿，每年皆自主管理能源與用水的使用狀況，定期保養與調整空調、通風及排氣系統，以確保設備節能又舒適；員工皆參與環保教育訓練，讓永續理念落實於日常營運；餐廳不使用保育類食材，場內不提供免洗餐具以減少一次性用品浪費，同時建立綠色採購機制，優先選用環保產品；此外，我們設有廢棄電池與照明光源的回收機制，並確保環境用藥及病媒防治措施均符合環保法規，致力於為旅客提供安心且永續的住宿環境。"
   },
   {
-    title: "關聯性分析",
-    query: "王小明和李大華之間是否有商業往來或共同投資關係？"
-  },
-  {
-    title: "國際制裁查詢",
-    query: "陳曉偉先生是否曾在越南犯下詐欺相關罪行？"
+    title: "全台環保飯店統計",
+    query: "哪些縣市的旅宿永續措施推動最多？"
   }
 ];
 
@@ -215,10 +216,10 @@ function QueryInterface({ onQuery }) {
   return (
     <QueryContainer>
       <WelcomeSection>
-        <MainTitle>Aegis 風險資料庫</MainTitle>
+        <MainTitle>AI低碳永續決策導航</MainTitle>
         <Subtitle>
-          透過整合多個開放資料集，提供全面的風險評估和背景調查服務。
-          輸入您的查詢問題，我們將為您提供詳細的風險分析報告。
+          整合觀光旅遊資料，為民眾、業者與政府提供智慧永續解決方案。
+          透過AI技術推動低碳旅遊，共創綠色觀光生態系統。
         </Subtitle>
       </WelcomeSection>
 
@@ -227,7 +228,7 @@ function QueryInterface({ onQuery }) {
           <SearchContainer>
             <SearchInput
               type="text"
-              placeholder="請輸入您的查詢問題，例如：某人是否有詐欺前科？"
+              placeholder="請輸入您的查詢問題，例如：規劃低碳旅遊路線"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               disabled={isLoading}
@@ -241,7 +242,7 @@ function QueryInterface({ onQuery }) {
         {isLoading && (
           <LoadingIndicator>
             <Spinner />
-            正在搜尋相關資料，請稍候...
+            正在分析您的需求，AI正在為您規劃最佳方案...
           </LoadingIndicator>
         )}
       </SearchSection>

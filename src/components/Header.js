@@ -21,14 +21,14 @@ const Logo = styled.div`
 const LogoIcon = styled.div`
   width: 40px;
   height: 40px;
-  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+  background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
   font-weight: bold;
-  font-size: 1.2rem;
+  font-size: 1rem;
 `;
 
 const Title = styled.h1`
@@ -119,10 +119,10 @@ function Header({ onNewQuery }) {
   return (
     <HeaderContainer>
       <Logo>
-        <LogoIcon>A</LogoIcon>
+        <LogoIcon>AI</LogoIcon>
         <Title>
-          Aegis 風險資料庫
-          <span>Risk Intelligence Platform</span>
+          AI低碳永續決策導航
+          <span>AI Sustainable Decision Navigator</span>
         </Title>
       </Logo>
       

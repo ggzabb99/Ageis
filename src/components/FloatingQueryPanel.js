@@ -1,5 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import styled from 'styled-components';
+import styled, { createGlobalStyle } from 'styled-components';
+
+const GlobalStyle = createGlobalStyle`
+  @keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+  }
+`;
 
 const PanelContainer = styled.div`
   position: absolute;
@@ -292,12 +299,62 @@ const ActionButton = styled.button`
   }
 `;
 
-function FloatingQueryPanel({ query, result, onNewQuery }) {
+function FloatingQueryPanel({ query, result, onNewQuery, onTypingComplete }) {
   const [isMinimized, setIsMinimized] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [position, setPosition] = useState({ x: window.innerWidth - 490, y: 20 });
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const panelRef = useRef(null);
+
+  // 判斷是否為政府端查詢（全台統計）
+  const isGovernmentQuery = result.isGovernmentQuery || false;
+
+  // Streaming 文字效果
+  const [displayedText, setDisplayedText] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const hasCompletedRef = useRef(false); // 追蹤打字機效果是否已完成
+  const currentSummaryRef = useRef(null); // 追蹤當前的 summary
+
+  // 實現打字機效果
+  useEffect(() => {
+    if (!result.summary) return;
+
+    // 如果是新的查詢（summary 改變），重置完成狀態
+    if (currentSummaryRef.current !== result.summary) {
+      hasCompletedRef.current = false;
+      currentSummaryRef.current = result.summary;
+    }
+
+    // 如果已經完成過了，不要重複執行
+    if (hasCompletedRef.current) return;
+
+    setDisplayedText('');
+    setIsTyping(true);
+
+    let currentIndex = 0;
+    const fullText = result.summary;
+    const typingSpeed = 30; // 每個字的延遲時間（毫秒）
+
+    const typingInterval = setInterval(() => {
+      if (currentIndex < fullText.length) {
+        setDisplayedText(fullText.substring(0, currentIndex + 1));
+        currentIndex++;
+      } else {
+        setIsTyping(false);
+        clearInterval(typingInterval);
+        hasCompletedRef.current = true; // 標記為已完成
+        // 通知父組件打字機效果結束
+        if (onTypingComplete) {
+          onTypingComplete();
+        }
+      }
+    }, typingSpeed);
+
+    return () => {
+      clearInterval(typingInterval);
+      setIsTyping(false);
+    };
+  }, [result.summary]); // 移除 onTypingComplete 依賴
 
   // 處理拖拽開始
   const handleMouseDown = (e) => {
@@ -411,14 +468,16 @@ function FloatingQueryPanel({ query, result, onNewQuery }) {
   const riskDetails = generateRiskDetails(result);
 
   return (
-    <PanelContainer 
-      ref={panelRef}
-      isMinimized={isMinimized}
-      isDragging={isDragging}
-      position={position}
-    >
+    <>
+      <GlobalStyle />
+      <PanelContainer
+        ref={panelRef}
+        isMinimized={isMinimized}
+        isDragging={isDragging}
+        position={position}
+      >
       <PanelHeader onMouseDown={handleMouseDown}>
-        <PanelTitle>風險分析報告</PanelTitle>
+        <PanelTitle>{isGovernmentQuery ? '數據治理小幫手' : '風險分析報告'}</PanelTitle>
         <PanelControls className="panel-controls">
           <ControlButton onClick={() => setIsMinimized(!isMinimized)}>
             {isMinimized ? '▲' : '▼'}
@@ -436,67 +495,89 @@ function FloatingQueryPanel({ query, result, onNewQuery }) {
         </QuerySection>
 
         <ResultSection>
-          <SectionTitle>分析結果</SectionTitle>
-          
-          <RiskAssessment level={result.riskLevel}>
-            <RiskLevel>
-              <RiskIndicator level={result.riskLevel} />
-              <RiskLevelText>
-                風險等級：{getRiskLevelLabel(result.riskLevel)}
-              </RiskLevelText>
-            </RiskLevel>
-            
-            <RiskDetails>
-              {riskDetails.cases.length > 0 && (
-                <DetailSection>
-                  <DetailTitle>涉及案件摘要</DetailTitle>
-                  <DetailList>
-                    {riskDetails.cases.map((caseItem, index) => (
-                      <li key={index}>{caseItem}</li>
-                    ))}
-                  </DetailList>
-                </DetailSection>
+          <SectionTitle>回答</SectionTitle>
+
+          {isGovernmentQuery ? (
+            <RiskAssessment level="low">
+              <Recommendation style={{ borderTop: 'none', paddingTop: 0, fontStyle: 'normal', whiteSpace: 'pre-line' }}>
+                {displayedText}
+                {isTyping && <span style={{ animation: 'blink 1s infinite' }}>▊</span>}
+              </Recommendation>
+            </RiskAssessment>
+          ) : (
+            <>
+              {result.summary && (
+                <RiskAssessment level={result.riskLevel}>
+                  <Recommendation style={{ borderTop: 'none', paddingTop: 0, fontStyle: 'normal', whiteSpace: 'pre-line', marginBottom: '1rem' }}>
+                    {displayedText}
+                    {isTyping && <span style={{ animation: 'blink 1s infinite' }}>▊</span>}
+                  </Recommendation>
+                </RiskAssessment>
               )}
-              
-              {riskDetails.persons.length > 0 && (
-                <DetailSection>
-                  <DetailTitle>關聯人物</DetailTitle>
-                  <DetailList>
-                    {riskDetails.persons.map((person, index) => (
-                      <li key={index}>{person}</li>
-                    ))}
-                  </DetailList>
-                </DetailSection>
-              )}
-            </RiskDetails>
-            
-            <Recommendation>{result.recommendation}</Recommendation>
-          </RiskAssessment>
+
+              <RiskAssessment level={result.riskLevel}>
+                <RiskLevel>
+                  <RiskIndicator level={result.riskLevel} />
+                  <RiskLevelText>
+                    風險等級：{getRiskLevelLabel(result.riskLevel)}
+                  </RiskLevelText>
+                </RiskLevel>
+
+                <RiskDetails>
+                  {riskDetails.cases.length > 0 && (
+                    <DetailSection>
+                      <DetailTitle>涉及案件摘要</DetailTitle>
+                      <DetailList>
+                        {riskDetails.cases.map((caseItem, index) => (
+                          <li key={index}>{caseItem}</li>
+                        ))}
+                      </DetailList>
+                    </DetailSection>
+                  )}
+
+                  {riskDetails.persons.length > 0 && (
+                    <DetailSection>
+                      <DetailTitle>關聯人物</DetailTitle>
+                      <DetailList>
+                        {riskDetails.persons.map((person, index) => (
+                          <li key={index}>{person}</li>
+                        ))}
+                      </DetailList>
+                    </DetailSection>
+                  )}
+                </RiskDetails>
+
+                {result.recommendation && <Recommendation>{result.recommendation}</Recommendation>}
+              </RiskAssessment>
+            </>
+          )}
         </ResultSection>
 
-        <DataSourceSection>
-          <SourceSectionTitle>各資料源查詢結果</SourceSectionTitle>
-          <FindingsList>
-            {result.findings
-              .sort((a, b) => {
-                // 'found' 排在前面, 'clear' 排在後面
-                if (a.status === 'found' && b.status === 'clear') return -1;
-                if (a.status === 'clear' && b.status === 'found') return 1;
-                return 0;
-              })
-              .map((finding, index) => (
-              <FindingItem key={index} status={finding.status}>
-                <FindingHeader>
-                  <FindingSource>{finding.source}</FindingSource>
-                  <FindingStatus status={finding.status}>
-                    {getStatusLabel(finding.status)}
-                  </FindingStatus>
-                </FindingHeader>
-                <FindingContent>{finding.content}</FindingContent>
-              </FindingItem>
-            ))}
-          </FindingsList>
-        </DataSourceSection>
+        {!isGovernmentQuery && result.findings && result.findings.length > 0 && (
+          <DataSourceSection>
+            <SourceSectionTitle>各資料源查詢結果</SourceSectionTitle>
+            <FindingsList>
+              {result.findings
+                .sort((a, b) => {
+                  // 'found' 排在前面, 'clear' 排在後面
+                  if (a.status === 'found' && b.status === 'clear') return -1;
+                  if (a.status === 'clear' && b.status === 'found') return 1;
+                  return 0;
+                })
+                .map((finding, index) => (
+                <FindingItem key={index} status={finding.status}>
+                  <FindingHeader>
+                    <FindingSource>{finding.source}</FindingSource>
+                    <FindingStatus status={finding.status}>
+                      {getStatusLabel(finding.status)}
+                    </FindingStatus>
+                  </FindingHeader>
+                  <FindingContent>{finding.content}</FindingContent>
+                </FindingItem>
+              ))}
+            </FindingsList>
+          </DataSourceSection>
+        )}
 
         <ActionButtons>
           <ActionButton className="primary" onClick={onNewQuery}>
@@ -507,7 +588,8 @@ function FloatingQueryPanel({ query, result, onNewQuery }) {
           </ActionButton>
         </ActionButtons>
       </PanelContent>
-    </PanelContainer>
+      </PanelContainer>
+    </>
   );
 }
 

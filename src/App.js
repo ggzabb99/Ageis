@@ -52,18 +52,20 @@ function App() {
   const [queryResult, setQueryResult] = useState(null);
   const [graphData, setGraphData] = useState(null);
   const [showQueryInterface, setShowQueryInterface] = useState(true);
+  const [isMapVisible, setIsMapVisible] = useState(false);
 
   // 模擬查詢處理
   const handleQuery = async (query) => {
     setCurrentQuery(query);
     setShowQueryInterface(false);
-    
+    setIsMapVisible(false); // 重置地圖顯示狀態
+
     // 模擬API調用延遲
     setTimeout(() => {
       // 生成模擬的查詢結果和圖形資料
       const mockResult = generateMockQueryResult(query);
       const mockGraphData = generateMockGraphData(query);
-      
+
       setQueryResult(mockResult);
       setGraphData(mockGraphData);
     }, 1500);
@@ -74,6 +76,12 @@ function App() {
     setCurrentQuery('');
     setQueryResult(null);
     setGraphData(null);
+    setIsMapVisible(false);
+  };
+
+  // 打字機效果結束後顯示地圖
+  const handleTypingComplete = () => {
+    setIsMapVisible(true);
   };
 
   return (
@@ -86,12 +94,13 @@ function App() {
               <QueryInterface onQuery={handleQuery} />
             ) : (
               <>
-                <GraphNetwork data={graphData} />
+                <GraphNetwork data={graphData} isVisible={isMapVisible} />
                 {queryResult && (
-                  <FloatingQueryPanel 
+                  <FloatingQueryPanel
                     query={currentQuery}
                     result={queryResult}
                     onNewQuery={handleNewQuery}
+                    onTypingComplete={handleTypingComplete}
                   />
                 )}
               </>
@@ -114,6 +123,12 @@ function generateMockQueryResult(query) {
     return generateWangLiRelationshipResult();
   } else if (query.includes('陳曉偉')) {
     return generateChenXiaoWeiResult();
+  } else if (query.includes('縣市') && query.includes('永續')) {
+    return generateCountyStatisticsResult();
+  } else if (query.includes('逢甲') && query.includes('駁二')) {
+    return generateLowCarbonRouteResult();
+  } else if (query.includes('環保標章') || query.includes('客房')) {
+    return generateEcoLabelAssessmentResult();
   } else {
     // 默認結果
     return generateDefaultResult(extractPersonName(query));
@@ -509,6 +524,90 @@ function generateDefaultData(personName) {
   ];
 
   return { nodes, links };
+}
+
+// 全台環保飯店統計結果
+function generateCountyStatisticsResult() {
+  return {
+    summary: `在台灣，針對旅宿業的「永續／綠色／低碳」措施，各縣市均有推動，不過從取得環保標章的旅宿來看，前三縣市在推動量與政務力度上比較突出：
+
+1. 臺北市 28間
+2. 桃園市 22間
+3. 高雄市 18間
+
+如果你願意，我可以提供一個比完整各縣市較表格給你。你要不要？`,
+    findings: [],
+    riskLevel: 'low',
+    recommendation: '',
+    isGovernmentQuery: true
+  };
+}
+
+// 低碳行程路線結果
+function generateLowCarbonRouteResult() {
+  return {
+    summary: `從台中逢甲到高雄駁二藝術特區的低碳路徑建議：`,
+    findings: [
+      {
+        source: '台鐵自強號',
+        status: 'found',
+        content: `車程約2小時，碳排放約 2.5 kg CO2，票價 $375`
+      },
+      {
+        source: '高鐵',
+        status: 'found',
+        content: `車程約1小時，碳排放約 3.2 kg CO2，票價 $700`
+      },
+      {
+        source: '客運',
+        status: 'found',
+        content: `車程約2.5小時，碳排放約 4.8 kg CO2，票價 $280`
+      },
+      {
+        source: '自駕汽車',
+        status: 'clear',
+        content: `車程約2小時，碳排放約 28 kg CO2（不推薦）`
+      }
+    ],
+    riskLevel: 'low',
+    recommendation: '建議選擇台鐵或高鐵作為主要交通方式，碳排放較低且舒適便捷。'
+  };
+}
+
+// 環保標章評估結果
+function generateEcoLabelAssessmentResult() {
+  return {
+    summary: `根據您提供的旅宿資訊進行環保標章評估：`,
+    findings: [
+      {
+        source: '能源管理',
+        status: 'found',
+        content: `✓ 自主管理能源使用、定期保養空調系統 - 符合標準`
+      },
+      {
+        source: '環保教育',
+        status: 'found',
+        content: `✓ 員工環保訓練、永續理念落實 - 符合標準`
+      },
+      {
+        source: '綠色餐飲',
+        status: 'found',
+        content: `✓ 不使用保育類食材、無免洗餐具、綠色採購 - 符合標準`
+      },
+      {
+        source: '廢棄物管理',
+        status: 'found',
+        content: `✓ 廢棄電池與照明回收機制 - 符合標準`
+      },
+      {
+        source: '環境用藥',
+        status: 'found',
+        content: `✓ 病媒防治符合環保法規 - 符合標準`
+      }
+    ],
+    riskLevel: 'low',
+    recommendation: '恭喜！您的旅宿符合環保標章「銀級」認證資格，建議可進一步強化節水措施以達到金級標準。'
+  };
 }
 
 // 從查詢中提取人名
