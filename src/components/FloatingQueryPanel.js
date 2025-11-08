@@ -477,7 +477,7 @@ function FloatingQueryPanel({ query, result, onNewQuery, onTypingComplete }) {
         position={position}
       >
       <PanelHeader onMouseDown={handleMouseDown}>
-        <PanelTitle>{isGovernmentQuery ? '數據治理小幫手' : '風險分析報告'}</PanelTitle>
+        <PanelTitle>{isGovernmentQuery ? '數據治理小幫手' : '永續決策小幫手'}</PanelTitle>
         <PanelControls className="panel-controls">
           <ControlButton onClick={() => setIsMinimized(!isMinimized)}>
             {isMinimized ? '▲' : '▼'}
@@ -515,40 +515,35 @@ function FloatingQueryPanel({ query, result, onNewQuery, onTypingComplete }) {
                 </RiskAssessment>
               )}
 
-              <RiskAssessment level={result.riskLevel}>
-                <RiskLevel>
-                  <RiskIndicator level={result.riskLevel} />
-                  <RiskLevelText>
-                    風險等級：{getRiskLevelLabel(result.riskLevel)}
-                  </RiskLevelText>
-                </RiskLevel>
+              {(riskDetails.cases.length > 0 || riskDetails.persons.length > 0) && (
+                <RiskAssessment level={result.riskLevel}>
+                  <RiskDetails>
+                    {riskDetails.cases.length > 0 && (
+                      <DetailSection>
+                        <DetailTitle>涉及案件摘要</DetailTitle>
+                        <DetailList>
+                          {riskDetails.cases.map((caseItem, index) => (
+                            <li key={index}>{caseItem}</li>
+                          ))}
+                        </DetailList>
+                      </DetailSection>
+                    )}
 
-                <RiskDetails>
-                  {riskDetails.cases.length > 0 && (
-                    <DetailSection>
-                      <DetailTitle>涉及案件摘要</DetailTitle>
-                      <DetailList>
-                        {riskDetails.cases.map((caseItem, index) => (
-                          <li key={index}>{caseItem}</li>
-                        ))}
-                      </DetailList>
-                    </DetailSection>
-                  )}
+                    {riskDetails.persons.length > 0 && (
+                      <DetailSection>
+                        <DetailTitle>關聯人物</DetailTitle>
+                        <DetailList>
+                          {riskDetails.persons.map((person, index) => (
+                            <li key={index}>{person}</li>
+                          ))}
+                        </DetailList>
+                      </DetailSection>
+                    )}
+                  </RiskDetails>
+                </RiskAssessment>
+              )}
 
-                  {riskDetails.persons.length > 0 && (
-                    <DetailSection>
-                      <DetailTitle>關聯人物</DetailTitle>
-                      <DetailList>
-                        {riskDetails.persons.map((person, index) => (
-                          <li key={index}>{person}</li>
-                        ))}
-                      </DetailList>
-                    </DetailSection>
-                  )}
-                </RiskDetails>
-
-                {result.recommendation && <Recommendation>{result.recommendation}</Recommendation>}
-              </RiskAssessment>
+              {result.recommendation && <Recommendation>{result.recommendation}</Recommendation>}
             </>
           )}
         </ResultSection>
