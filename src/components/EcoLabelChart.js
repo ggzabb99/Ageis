@@ -219,7 +219,7 @@ function EcoLabelChart({ isVisible = false }) {
         name: '員工教育與環保文化',
         conditions: [
           { text: '每年進行空調（暖氣與冷氣）及通風、排氣系統之保養與調整。', status: 'completed' },
-          { text: '室內無人區域設置自動調光控制或紅外線控制照明自動點燈等照明設備或確保室內無人區域維持燈具關閉之措施。', status: 'priority' }
+          { text: '室內無人區域設置自動調光控制或紅外線控制照明自動點燈等照明設備或確保室內無人區域維持燈具關閉之措施。', status: 'incomplete' }
         ]
       },
       {
@@ -234,7 +234,7 @@ function EcoLabelChart({ isVisible = false }) {
         name: '綠色採購與產品使用',
         conditions: [
           { text: '業者應建立綠色採購機制。', status: 'completed' },
-          { text: '每年至少有3項綠色產品採購', status: 'priority' }
+          { text: '每年至少有3項綠色產品採購', status: 'incomplete' }
         ]
       },
       {
@@ -255,77 +255,6 @@ function EcoLabelChart({ isVisible = false }) {
     ]
   };
 
-  const silverData = {
-    level: '銀級完成率',
-    percentage: '0%',
-    color: '#C0C0C0',
-    items: [
-      {
-        name: '綜合環境管理與社區參與',
-        conditions: [
-          { text: '具有廢棄物年度統計資料。', status: 'incomplete' },
-          { text: '場所內之二氧化碳及真菌，符合「室內空氣品質標準」之標準值，且具有維護管理措施與每年定期檢測。', status: 'incomplete' },
-          { text: '具有環境政策及環境管理方案或行動計畫，且內容包含節能減碳相關措施。', status: 'incomplete' },
-          { text: '支持社區相關活動或提供社區民眾優惠方案。', status: 'incomplete' },
-          { text: '具有客戶之意見蒐集與檢討改善機制。', status: 'incomplete' },
-          { text: '設有餐廳者，使用食材優先採用在地、當季生產或有機方式種植之農產品。', status: 'incomplete' },
-          { text: '每年檢討電器設備效能及維護保養。', status: 'incomplete' },
-          { text: '如有辦公區域者，推行環保相關措施。', status: 'incomplete' },
-          { text: '主動維護服務場所周邊環境清潔。', status: 'incomplete' }
-        ]
-      },
-      {
-        name: '節能與運輸友善措施',
-        conditions: [
-          { text: '具房客離去後重新設定自動調溫器於固定值之措施。', status: 'incomplete' },
-          { text: '室內照明燈具超過半數使用節能燈管或燈具。', status: 'incomplete' },
-          { text: '客房電源與房卡（鑰匙）應為連動，或有相關措施於房客外出時關閉電源。', status: 'incomplete' },
-          { text: '鼓勵房客不自行開車前往，業者有提供配套措施，如提供接駁車定點接送房客至旅館。', status: 'incomplete' },
-          { text: '提供自行車友善措施（如自行車供房客使用、場所周邊設有公用自行車或設有自行車停放空間）。', status: 'incomplete' },
-          { text: '設有餐廳者，其冷凍倉庫裝設塑膠簾或空氣簾。', status: 'incomplete' },
-          { text: '設有地下停車場者，其抽風設備設置自動感測或定時裝置。', status: 'incomplete' },
-          { text: '設有電梯或電扶梯兩台以上之場所，在使用量較低之時間，減少電梯或電扶梯數之啟動使用，如場所僅有一台電梯或電扶梯者，具有休眠或降速運轉或其他相似之功能。', status: 'incomplete' },
-          { text: '於空調系統、鍋爐熱水系統及溫水泳池等設備安裝熱回收或保溫設備。', status: 'incomplete' },
-          { text: '戶外照明使用光學偵測器或定時器等節能措施。', status: 'incomplete' }
-        ]
-      },
-      {
-        name: '節水與水資源再利用',
-        conditions: [
-          { text: '水龍頭及蓮蓬頭超過半數取得綠色產品證明或加裝省水設備。', status: 'incomplete' },
-          { text: '馬桶超過半數取得綠色產品證明或加裝省水設備。', status: 'incomplete' },
-          { text: '游泳池及大眾浴池之單純泡湯廢水，與其他作業廢水（如餐飲廢水及沐浴廢水等）分流收集處理，並經毛髮過濾設施、懸浮固體過濾設施等簡易處理後，回收作為其他用途之水源。', status: 'incomplete' },
-          { text: '設有庭院者，需設置雨水貯槽及再利用措施，空中花園或室內庭院不在此限。', status: 'incomplete' }
-        ]
-      },
-      {
-        name: '綠色採購與綠色商品推廣',
-        conditions: [
-          { text: '每年至少有5項綠色產品採購，且個別採購金額比率達50%以上。', status: 'incomplete' },
-          { text: '設有附屬商店者，銷售產品包含綠色產品。', status: 'incomplete' }
-        ]
-      },
-      {
-        name: '減塑與一次性用品減量',
-        conditions: [
-          { text: '設有餐廳者，提供客戶可重複使用之布巾或餐巾。', status: 'incomplete' },
-          { text: '外帶之食品不提供免洗餐具，包含塑膠材質製作之杯、碗、盤、碟、叉、匙及免洗筷等一次用餐具。', status: 'incomplete' },
-          { text: '場所內設有方便旅客取用之飲用水設備或措施，以減少塑膠瓶裝水供應。', status: 'incomplete' },
-          { text: '設有餐廳者，不使用一次用桌巾。', status: 'incomplete' },
-          { text: '設有餐廳者，食材及消耗品不採購過度包裝產品，減少包裝廢棄物。', status: 'incomplete' }
-        ]
-      },
-      {
-        name: '餐飲及設施環保管理',
-        conditions: [
-          { text: '若有乾洗設備者，不使用鹵素溶劑作為清洗劑。', status: 'incomplete' },
-          { text: '如使用水冷式空調系統，每年應進行冷卻水中之退伍軍人菌檢測。', status: 'incomplete' },
-          { text: '設有餐廳者，餐飲廢水設置油脂截留設施處理，並正常操作。', status: 'incomplete' },
-          { text: '設有餐廳者，其抽油煙機應加裝油煙處理設備及除臭設備，並正常操作。', status: 'incomplete' }
-        ]
-      }
-    ]
-  };
 
   const renderLevelSection = (data, levelKey) => {
     // 佈局常數
@@ -528,7 +457,6 @@ function EcoLabelChart({ isVisible = false }) {
 
         <LevelsContainer>
           {renderLevelSection(bronzeData, 'bronze')}
-          {renderLevelSection(silverData, 'silver')}
         </LevelsContainer>
 
         <Legend>
